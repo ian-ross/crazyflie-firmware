@@ -39,6 +39,7 @@
 #include "motors.h"
 #include "log.h"
 #include "pid.h"
+#include "led.h"
 #include "ledseq.h"
 #include "param.h"
 //#include "ms5611.h"
@@ -85,7 +86,7 @@ static float aslLong; // long term asl
 // Altitude hold variables
 static PidObject altHoldPID; // Used for altitute hold mode. I gets reset when the bat status changes
 bool altHold = false;          // Currently in altitude hold mode
-bool setAltHold = false;      // Hover mode has just been activated
+bool altHoldChanged = false;   // Hover mode has just been activated or deactivated
 static float accWZ     = 0.0;
 static float accMAG    = 0.0;
 static float vSpeedASL = 0.0;
@@ -117,6 +118,9 @@ static uint16_t altHoldMinThrust    = 00000; // minimum hover thrust - not used 
 static uint16_t altHoldBaseThrust   = 43000; // approximate throttle needed when in perfect hover. More weight/older battery can use a higher value
 static uint16_t altHoldMaxThrust    = 60000; // max altitude hold thrust
 
+// Auto-land variables
+bool autoland = false;         // Currently in auto-land mode
+bool autolandChanged = false;  // Auto-land mode has just been activated or deactivated
 
 RPYType rollType;
 RPYType pitchType;
@@ -135,6 +139,7 @@ uint32_t motorPowerM3;
 static bool isInit;
 
 static void stabilizerAltHoldUpdate(void);
+static void stabilizerAutolandUpdate(void);
 static void distributePower(const uint16_t thrust, const int16_t roll,
                             const int16_t pitch, const int16_t yaw);
 static uint16_t limitThrust(int32_t value);
@@ -220,6 +225,7 @@ static void stabilizerTask(void* param)
       if (imuHasBarometer() && (++altHoldCounter >= ALTHOLD_UPDATE_RATE_DIVIDER))
       {
         stabilizerAltHoldUpdate();
+        stabilizerAutolandUpdate();
         altHoldCounter = 0;
       }
 
@@ -274,10 +280,23 @@ static void stabilizerTask(void* param)
   }
 }
 
+static void stabilizerAutolandUpdate(void)
+{
+  // Get auto-land commands from pilot
+  commanderGetAutoland(&autoland, &autolandChanged);
+
+  if (autolandChanged) {
+    if (autoland)
+      ledseqRun(SYS_LED, seq_autoland);
+    else
+      ledseqRun(SYS_LED, seq_calibrated);
+  }
+}
+
 static void stabilizerAltHoldUpdate(void)
 {
   // Get altitude hold commands from pilot
-  commanderGetAltHold(&altHold, &setAltHold, &altHoldChange);
+  commanderGetAltHold(&altHold, &altHoldChanged, &altHoldChange);
 
   // Get barometer height estimates
   //TODO do the smoothing within getData
@@ -301,8 +320,11 @@ static void stabilizerAltHoldUpdate(void)
   }
 
   // Altitude hold mode just activated, set target altitude as current altitude. Reuse previous integral term as a starting point
-  if (setAltHold)
+  if (!altHold && altHoldChanged) ledseqRun(SYS_LED, seq_calibrated);
+  if (altHold && altHoldChanged)
   {
+    ledseqRun(SYS_LED, seq_altHold);
+
     // Set to current altitude
     altHoldTarget = asl;
 
@@ -498,4 +520,3 @@ PARAM_ADD(PARAM_UINT16, baseThrust, &altHoldBaseThrust)
 PARAM_ADD(PARAM_UINT16, maxThrust, &altHoldMaxThrust)
 PARAM_ADD(PARAM_UINT16, minThrust, &altHoldMinThrust)
 PARAM_GROUP_STOP(altHold)
-

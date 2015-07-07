@@ -50,6 +50,8 @@ static bool isInactive;
 static bool thrustLocked;
 static bool altHoldMode = false;
 static bool altHoldModeOld = false;
+static bool autolandMode = false;
+static bool autolandModeOld = false;
 
 static void commanderCrtpCB(CRTPPacket* pk);
 static void commanderWatchdogReset(void);
@@ -104,6 +106,7 @@ void commanderWatchdog(void)
   {
     targetVal[usedSide].thrust = 0;
     altHoldMode = false; // do we need this? It would reset the target altitude upon reconnect if still hovering
+    autolandMode = false;
     isInactive = true;
     thrustLocked = true;
   }
@@ -132,12 +135,19 @@ void commanderGetRPY(float* eulerRollDesired, float* eulerPitchDesired, float* e
   *eulerYawDesired   = targetVal[usedSide].yaw;
 }
 
-void commanderGetAltHold(bool* altHold, bool* setAltHold, float* altHoldChange)
+void commanderGetAltHold(bool* altHold, bool* altHoldChanged, float* altHoldChange)
 {
   *altHold = altHoldMode; // Still in altitude hold mode
-  *setAltHold = !altHoldModeOld && altHoldMode; // Hover just activated
+  *altHoldChanged = altHoldModeOld != altHoldMode; // Hover just activated or deactivated
   *altHoldChange = altHoldMode ? ((float) targetVal[side].thrust - 32767.) / 32767. : 0.0; // Amount to change altitude hold target
   altHoldModeOld = altHoldMode;
+}
+
+void commanderGetAutoland(bool* autoland, bool* autolandChanged)
+{
+  *autoland = autolandMode; // Still in auto-land mode
+  *autolandChanged = autolandModeOld != autolandMode; // Auto-land just activated or deactivated
+  autolandModeOld = autolandMode;
 }
 
 
@@ -180,5 +190,5 @@ void commanderGetThrust(uint16_t* thrust)
 // Params for flight modes
 PARAM_GROUP_START(flightmode)
 PARAM_ADD(PARAM_UINT8, althold, &altHoldMode)
+PARAM_ADD(PARAM_UINT8, autoland, &autolandMode)
 PARAM_GROUP_STOP(flightmode)
-

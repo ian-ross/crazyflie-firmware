@@ -1,6 +1,6 @@
 /**
- *    ||          ____  _ __                           
- * +------+      / __ )(_) /_______________ _____  ___ 
+ *    ||          ____  _ __
+ * +------+      / __ )(_) /_______________ _____  ___
  * | 0xBC |     / __  / / __/ ___/ ___/ __ `/_  / / _ \
  * +------+    / /_/ / / /_/ /__/ /  / /_/ / / /_/  __/
  *  ||  ||    /_____/_/\__/\___/_/   \__,_/ /___/\___/
@@ -48,6 +48,8 @@ static ledseq_t * sequences[] = {
   seq_calibrated,
   seq_alive,
   seq_linkup,
+  seq_altHold,
+  seq_autoland
 };
 
 /* Led sequences */
@@ -77,8 +79,23 @@ ledseq_t seq_alive[] = {
 
 //TODO: Change, right now is called so fast it looks like seq_lowbat
 ledseq_t seq_altHold[] = {
-  { true, LEDSEQ_WAITMS(1)},
-  {false, LEDSEQ_WAITMS(50)},
+  { true, LEDSEQ_WAITMS(10)},
+  {false, LEDSEQ_WAITMS(10)},
+  { true, LEDSEQ_WAITMS(20)},
+  {false, LEDSEQ_WAITMS(10)},
+  { true, LEDSEQ_WAITMS(30)},
+  {false, LEDSEQ_WAITMS(100)},
+  {    0, LEDSEQ_STOP},
+};
+
+
+ledseq_t seq_autoland[] = {
+  { true, LEDSEQ_WAITMS(30)},
+  {false, LEDSEQ_WAITMS(10)},
+  { true, LEDSEQ_WAITMS(20)},
+  {false, LEDSEQ_WAITMS(10)},
+  { true, LEDSEQ_WAITMS(10)},
+  {false, LEDSEQ_WAITMS(100)},
   {    0, LEDSEQ_STOP},
 };
 
@@ -131,7 +148,7 @@ static void runLedseq(xTimerHandle xTimer);
 static int getPrio(ledseq_t *seq);
 static void updateActive(led_t led);
 
-//State of every sequence for every led: LEDSEQ_STOP if stopped or the current 
+//State of every sequence for every led: LEDSEQ_STOP if stopped or the current
 //step
 static int state[LED_NUM][SEQ_NUM];
 //Active sequence for each led
@@ -147,25 +164,25 @@ static bool ledseqEnabled = false;
 void ledseqInit()
 {
   int i,j;
-  
+
   if(isInit)
     return;
-  
+
   ledInit();
-  
+
   //Initialise the sequences state
   for(i=0; i<LED_NUM; i++) {
     activeSeq[i] = LEDSEQ_STOP;
     for(j=0; j<SEQ_NUM; j++)
       state[i][j] = LEDSEQ_STOP;
   }
-  
+
   //Init the soft timers that runs the led sequences for each leds
   for(i=0; i<LED_NUM; i++)
     timer[i] = xTimerCreate((const signed char *)"ledseqTimer", M2T(1000), pdFALSE, (void*)i, runLedseq);
 
   vSemaphoreCreateBinary(ledseqSem);
-  
+
   isInit = true;
 }
 
@@ -186,14 +203,14 @@ void ledseqEnable(bool enable)
 void ledseqRun(led_t led, ledseq_t *sequence)
 {
   int prio = getPrio(sequence);
-  
+
   if(prio<0) return;
-  
+
   xSemaphoreTake(ledseqSem, portMAX_DELAY);
   state[led][prio] = 0;  //Reset the seq. to its first step
   updateActive(led);
   xSemaphoreGive(ledseqSem);
-  
+
   //Run the first step if the new seq is the active sequence
   if(activeSeq[led] == prio)
     runLedseq(timer[led]);
@@ -208,14 +225,14 @@ void ledseqSetTimes(ledseq_t *sequence, int32_t onTime, int32_t offTime)
 void ledseqStop(led_t led, ledseq_t *sequence)
 {
   int prio = getPrio(sequence);
-  
+
   if(prio<0) return;
-  
+
   xSemaphoreTake(ledseqSem, portMAX_DELAY);
   state[led][prio] = LEDSEQ_STOP;  //Stop the seq.
   updateActive(led);
   xSemaphoreGive(ledseqSem);
-  
+
   //Run the next active sequence (if any...)
   runLedseq(timer[led]);
 }
@@ -234,14 +251,14 @@ static void runLedseq( xTimerHandle xTimer )
 
   while(!leave) {
     int prio = activeSeq[led];
-  
+
     if (prio == LEDSEQ_STOP)
       return;
-    
+
     step = &sequences[prio][state[led][prio]];
 
     state[led][prio]++;
-    
+
     xSemaphoreTake(ledseqSem, portMAX_DELAY);
     switch(step->action)
     {
@@ -273,17 +290,17 @@ static int getPrio(ledseq_t *seq)
   //Find the priority of the sequence
   for(prio=0; prio<SEQ_NUM; prio++)
     if(sequences[prio]==seq) return prio;
-  
+
   return -1; //Invalid sequence
 }
 
 static void updateActive(led_t led)
 {
   int prio;
-  
+
   activeSeq[led]=LEDSEQ_STOP;
   ledSet(led, false);
-  
+
   for(prio=0;prio<SEQ_NUM;prio++)
   {
     if (state[led][prio] != LEDSEQ_STOP)
@@ -293,5 +310,3 @@ static void updateActive(led_t led)
     }
   }
 }
-
-

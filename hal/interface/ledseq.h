@@ -1,6 +1,6 @@
 /**
- *    ||          ____  _ __                           
- * +------+      / __ )(_) /_______________ _____  ___ 
+ *    ||          ____  _ __
+ * +------+      / __ )(_) /_______________ _____  ___
  * | 0xBC |     / __  / / __/ ___/ ___/ __ `/_  / / _ \
  * +------+    / /_/ / / /_/ /__/ /  / /_/ / / /_/  __/
  *  ||  ||    /_____/_/\__/\___/_/   \__,_/ /___/\___/
@@ -21,7 +21,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 /*
  * ledseq.h - LED sequence handler
  */
@@ -29,8 +29,8 @@
 #ifndef __LEDSEQ_H__
 #define __LEDSEQ_H__
 
-/* A LED sequence is made of a list of actions. Each action contains the new 
- * state of the LED and either a time to wait before executing the next action 
+/* A LED sequence is made of a list of actions. Each action contains the new
+ * state of the LED and either a time to wait before executing the next action
  * or a command LOOP or STOP.
  *
  * The sequences are stored in a list by priority order ([0] is the highest
@@ -71,10 +71,10 @@ extern ledseq_t seq_alive[];
 extern ledseq_t seq_lowbat[];
 extern ledseq_t seq_linkup[];
 extern ledseq_t seq_altHold[];
+extern ledseq_t seq_autoland[];
 extern ledseq_t seq_charged[];
 extern ledseq_t seq_charging[];
 extern ledseq_t seq_bootloader[];
 extern ledseq_t seq_testPassed[];
 
 #endif
-
